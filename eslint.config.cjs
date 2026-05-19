@@ -5,7 +5,7 @@ const eslintConfigPrettier = require("eslint-config-prettier");
 /** @type {import("eslint").Linter.Config[]} */
 module.exports = [
   {
-    ignores: ["dist/**", "node_modules/**"],
+    ignores: ["dist/**", "node_modules/**", "coverage/**"],
   },
   {
     files: ["credentials/**/*.ts", "nodes/**/*.ts", "index.ts"],

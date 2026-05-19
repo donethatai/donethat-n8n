@@ -1,3 +1,9 @@
+/** DoneThat API base URL. */
+export const API_BASE_URL = 'https://api.donethat.ai';
+
+/** DoneThat API reference documentation. */
+export const API_DOCS_URL = 'https://donethat.ai/api-reference';
+
 /** Allowed project color hex values (DoneThat API). */
 export const PROJECT_COLORS = [
   '#FFB623',

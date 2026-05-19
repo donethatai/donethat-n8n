@@ -38,4 +38,27 @@ describe('normalizeDoneThatResponse', () => {
       'DoneThat API request failed',
     );
   });
+
+  it('unwraps message content fields', () => {
+    expect(
+      normalizeDoneThatResponse(
+        {
+          success: true,
+          level: 'day',
+          format: 'text',
+          content: 'Summary text',
+          metadata: {subject: 'Daily'},
+        },
+        'message',
+        'get',
+      ),
+    ).toEqual([
+      {
+        level: 'day',
+        format: 'text',
+        content: 'Summary text',
+        metadata: {subject: 'Daily'},
+      },
+    ]);
+  });
 });

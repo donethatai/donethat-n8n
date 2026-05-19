@@ -6,7 +6,10 @@ module.exports = {
   modulePathIgnorePatterns: ['<rootDir>/dist/'],
   clearMocks: true,
   collectCoverageFrom: [
+    'nodes/DoneThat/dates.ts',
+    'nodes/DoneThat/request.ts',
     'nodes/DoneThat/response.ts',
+    'nodes/DoneThat/projects.ts',
     'nodes/DoneThat/constants.ts',
     'credentials/**/*.ts',
   ],

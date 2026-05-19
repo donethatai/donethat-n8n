@@ -47,5 +47,16 @@ export function normalizeDoneThatResponse(
     return [body.project as IDataObject];
   }
 
+  if (resource === 'message') {
+    return [
+      {
+        level: body.level,
+        format: body.format,
+        content: body.content,
+        metadata: body.metadata,
+      },
+    ];
+  }
+
   return [body];
 }

@@ -1,42 +1,23 @@
 import type {
   IDataObject,
   IExecuteFunctions,
+  ILoadOptionsFunctions,
   INodeExecutionData,
+  INodePropertyOptions,
   INodeType,
   INodeTypeDescription,
-  IHttpRequestOptions,
 } from 'n8n-workflow';
-import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
+import {NodeConnectionTypes, NodeOperationError} from 'n8n-workflow';
 
-import {PROJECT_COLOR_HELP} from './constants';
+import {PROJECT_COLOR_HELP, PROJECT_COLORS} from './constants';
+import {projectListHttpOptions, projectOptionsFromResponse} from './projects';
+import {buildDoneThatRequest, trimBaseUrl} from './request';
 import {normalizeDoneThatResponse, type DoneThatResource} from './response';
+
+const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((value) => ({name: value, value}));
 
 interface DoneThatCredentials {
   baseUrl: string;
-}
-
-function trimBaseUrl(baseUrl: string): string {
-  return baseUrl.replace(/\/+$/, '');
-}
-
-function dateToUtcStartMs(value: string): number {
-  const ms = Date.parse(`${value}T00:00:00.000Z`);
-  if (Number.isNaN(ms)) {
-    throw new Error(`Invalid date: ${value}`);
-  }
-  return ms;
-}
-
-function dateToUtcEndExclusiveMs(value: string): number {
-  return dateToUtcStartMs(value) + 24 * 60 * 60 * 1000;
-}
-
-function splitCsv(value: string): string[] | undefined {
-  const values = value
-    .split(',')
-    .map((item) => item.trim())
-    .filter(Boolean);
-  return values.length > 0 ? values : undefined;
 }
 
 export class DoneThat implements INodeType {
@@ -47,7 +28,7 @@ export class DoneThat implements INodeType {
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
-    description: 'Work with DoneThat reports, summaries, projects, and search via api.donethat.ai',
+    description: 'Reports, summaries, projects, and search via the DoneThat API.',
     defaults: {
       name: 'DoneThat',
     },
@@ -221,14 +202,18 @@ export class DoneThat implements INodeType {
         default: 'list',
       },
       {
-        displayName: 'Project ID',
+        displayName: 'Project',
         name: 'projectId',
-        type: 'string',
+        type: 'options',
+        typeOptions: {
+          loadOptionsMethod: 'getProjects',
+        },
         displayOptions: {
-          show: { resource: ['project'], operation: ['get', 'update', 'archive'] },
+          show: {resource: ['project'], operation: ['get', 'update', 'archive']},
         },
         default: '',
         required: true,
+        description: 'Loaded from GET /projects (includes archived).',
       },
       {
         displayName: 'Name',
@@ -248,11 +233,12 @@ export class DoneThat implements INodeType {
           {
             displayName: 'Color',
             name: 'color',
-            type: 'string',
+            type: 'options',
+            options: PROJECT_COLOR_OPTIONS,
             default: '',
             description: PROJECT_COLOR_HELP,
           },
-          { displayName: 'Confidential', name: 'confidential', type: 'boolean', default: false },
+          {displayName: 'Confidential', name: 'confidential', type: 'boolean', default: false},
           { displayName: 'Description', name: 'description', type: 'string', default: '' },
           { displayName: 'Portfolio', name: 'portfolio', type: 'string', default: '' },
           { displayName: 'Private', name: 'private', type: 'boolean', default: false },
@@ -270,14 +256,22 @@ export class DoneThat implements INodeType {
           {
             displayName: 'Color',
             name: 'color',
-            type: 'string',
+            type: 'options',
+            options: PROJECT_COLOR_OPTIONS,
             default: '',
             description: PROJECT_COLOR_HELP,
           },
-          { displayName: 'Description', name: 'description', type: 'string', default: '' },
-          { displayName: 'Portfolio', name: 'portfolio', type: 'string', default: '' },
-          { displayName: 'Private', name: 'private', type: 'boolean', default: false },
-          { displayName: 'Team', name: 'team', type: 'string', default: '' },
+          {displayName: 'Description', name: 'description', type: 'string', default: ''},
+          {displayName: 'Portfolio', name: 'portfolio', type: 'string', default: ''},
+          {displayName: 'Private', name: 'private', type: 'boolean', default: false},
+          {displayName: 'Team', name: 'team', type: 'string', default: ''},
+          {
+            displayName: 'Archived',
+            name: 'archived',
+            type: 'boolean',
+            default: false,
+            description: 'Set false to unarchive when updating.',
+          },
         ],
       },
       {
@@ -351,6 +345,21 @@ export class DoneThat implements INodeType {
     ],
   };
 
+  methods = {
+    loadOptions: {
+      async getProjects(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+        const credentials = await this.getCredentials('doneThatApi');
+        const baseUrl = trimBaseUrl(credentials.baseUrl as string);
+        const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
+          this,
+          'doneThatApi',
+          projectListHttpOptions(baseUrl),
+        );
+        return projectOptionsFromResponse(response);
+      },
+    },
+  };
+
   async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
     const items = this.getInputData();
     const returnData: INodeExecutionData[] = [];
@@ -365,7 +374,14 @@ export class DoneThat implements INodeType {
         const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
           this,
           'doneThatApi',
-          buildRequest(this, baseUrl, resource, operation, itemIndex),
+          buildDoneThatRequest({
+            baseUrl,
+            resource,
+            operation,
+            getParameter: (name) => this.getNodeParameter(name, itemIndex),
+            getCollection: (name) =>
+              this.getNodeParameter(name, itemIndex, {}) as IDataObject,
+          }),
         );
 
         const itemsOut = normalizeDoneThatResponse(response, resource, operation);
@@ -391,133 +407,4 @@ export class DoneThat implements INodeType {
 
     return [returnData];
   }
-}
-
-function buildRequest(
-  executeFunctions: IExecuteFunctions,
-  baseUrl: string,
-  resource: DoneThatResource,
-  operation: string,
-  itemIndex: number,
-): IHttpRequestOptions {
-  if (resource === 'report') {
-    const startDate = executeFunctions.getNodeParameter('startDate', itemIndex) as string;
-    const endDate = executeFunctions.getNodeParameter('endDate', itemIndex) as string;
-    const options = executeFunctions.getNodeParameter('reportOptions', itemIndex, {}) as IDataObject;
-    const body: IDataObject = {
-      dateRange: {
-        from: dateToUtcStartMs(startDate),
-        to: dateToUtcEndExclusiveMs(endDate),
-      },
-      aggregationLevel: executeFunctions.getNodeParameter('aggregationLevel', itemIndex),
-    };
-
-    for (const key of ['includeCategories', 'includeProjects', 'sort']) {
-      if (options[key] !== undefined) body[key] = options[key];
-    }
-    if (typeof options.projectIds === 'string') body.projectIds = splitCsv(options.projectIds);
-    if (typeof options.teamIds === 'string') body.teamIds = splitCsv(options.teamIds);
-
-    return {
-      method: 'POST',
-      url: `${baseUrl}/report`,
-      body,
-      json: true,
-    };
-  }
-
-  if (resource === 'message') {
-    return {
-      method: 'GET',
-      url: `${baseUrl}/message`,
-      qs: {
-        date: executeFunctions.getNodeParameter('messageDate', itemIndex),
-        level: executeFunctions.getNodeParameter('messageLevel', itemIndex),
-        format: executeFunctions.getNodeParameter('messageFormat', itemIndex),
-      },
-      json: true,
-    };
-  }
-
-  if (resource === 'project') {
-    return buildProjectRequest(executeFunctions, baseUrl, operation, itemIndex);
-  }
-
-  return buildSearchRequest(executeFunctions, baseUrl, itemIndex);
-}
-
-function buildProjectRequest(
-  executeFunctions: IExecuteFunctions,
-  baseUrl: string,
-  operation: string,
-  itemIndex: number,
-): IHttpRequestOptions {
-  if (operation === 'list') {
-    return {
-      method: 'GET',
-      url: `${baseUrl}/projects`,
-      qs: {
-        includeArchived: executeFunctions.getNodeParameter('includeArchived', itemIndex),
-        sort: executeFunctions.getNodeParameter('projectSort', itemIndex),
-      },
-      json: true,
-    };
-  }
-
-  if (operation === 'get') {
-    const projectId = executeFunctions.getNodeParameter('projectId', itemIndex) as string;
-    return { method: 'GET', url: `${baseUrl}/projects/${projectId}`, json: true };
-  }
-
-  const body: IDataObject = {};
-  if (operation === 'create' || operation === 'update') {
-    const name = executeFunctions.getNodeParameter('projectName', itemIndex, '') as string;
-    const fields = executeFunctions.getNodeParameter('projectFields', itemIndex, {}) as IDataObject;
-    if (name) body.name = name;
-    for (const key of ['description', 'color', 'team', 'portfolio']) {
-      if (typeof fields[key] === 'string' && fields[key] !== '') body[key] = fields[key];
-    }
-    for (const key of ['private', 'confidential']) {
-      if (typeof fields[key] === 'boolean') body[key] = fields[key];
-    }
-  }
-
-  if (operation === 'archive') {
-    body.archived = executeFunctions.getNodeParameter('projectArchived', itemIndex);
-  }
-
-  const projectId =
-    operation === 'create'
-      ? undefined
-      : (executeFunctions.getNodeParameter('projectId', itemIndex) as string);
-
-  return {
-    method: 'POST',
-    url: operation === 'create' ? `${baseUrl}/projects` : `${baseUrl}/projects/${projectId}`,
-    body,
-    json: true,
-  };
-}
-
-function buildSearchRequest(
-  executeFunctions: IExecuteFunctions,
-  baseUrl: string,
-  itemIndex: number,
-): IHttpRequestOptions {
-  const options = executeFunctions.getNodeParameter('searchOptions', itemIndex, {}) as IDataObject;
-  const body: IDataObject = {
-    query: executeFunctions.getNodeParameter('query', itemIndex),
-  };
-
-  if (typeof options.context === 'string' && options.context) body.context = options.context;
-  if (typeof options.days === 'number') body.days = options.days;
-  if (typeof options.limit === 'number') body.limit = options.limit;
-  if (Array.isArray(options.sources) && options.sources.length > 0) body.sources = options.sources;
-
-  return {
-    method: 'POST',
-    url: `${baseUrl}/search`,
-    body,
-    json: true,
-  };
 }

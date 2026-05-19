@@ -7,20 +7,31 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![n8n community node](https://img.shields.io/badge/n8n-community%20node-FF6D5A?logo=n8n&logoColor=white)](https://docs.n8n.io/integrations/community-nodes/)
 
-Community n8n node for [DoneThat](https://donethat.ai).
+Community [n8n](https://n8n.io) node for [DoneThat](https://donethat.ai). Uses API keys from **Settings → API Access**.
 
-## Operations
+- **API base URL (HTTP):** `https://api.donethat.ai`
+- **API reference (docs):** [donethat.ai/api-reference](https://donethat.ai/api-reference)
 
-- **Report** — `POST /report` (aggregation: activity, day, task, week; `minute` is a legacy alias for activity)
-- **Summary message** — `GET /message`
-- **Project** — `GET/POST /projects` (list, get, create, update, archive; delete is not supported by the API)
-- **Search** — `POST /search` (sources: `tasks`, `activity`; `screenshots` is a legacy alias for activity)
+## Resources
 
-API base URL: `https://api.donethat.ai`
+| Resource | Operations | API |
+| :--- | :--- | :--- |
+| **Report** | Generate | `POST /report` (`activity`, `day`, `task`, `week`; `minute` = legacy alias for `activity`) |
+| **Summary message** | Get | `GET /message` |
+| **Project** | List, get, create, update, archive | `GET/POST /projects` (no delete) |
+| **Search** | Search | `POST /search` (`tasks`, `activity`; `screenshots` = legacy alias for `activity`) |
 
 ## Credentials
 
-Create an API key in DoneThat under **Settings → API Access**.
+| Field | Purpose |
+| :--- | :--- |
+| **Connection name** | Friendly label in n8n (not a URL) |
+| **API key** | From https://donethat.ai → Settings → API Access |
+| **Base URL** | `https://api.donethat.ai` (override only for testing) |
+
+Credential test: `GET /projects`.
+
+### API key scopes
 
 | Scope | Used for |
 | :--- | :--- |
@@ -30,18 +41,34 @@ Create an API key in DoneThat under **Settings → API Access**.
 | `projects:write` | Create, update, archive (includes read) |
 | `search:read` | Search |
 
-The credential test calls `GET /projects`.
-
 ## Development
 
 ```bash
 npm install
 npm run build
+npm run lint
 npm test
 ```
 
-Link the built package into your n8n custom extensions directory.
+`npm run build` runs `scripts/verify-n8n-package.mjs` to confirm compiled node/credential classes, the icon asset, and credential test (`GET /projects`) match what n8n loads from `package.json`.
+
+### Install in n8n (local)
+
+```bash
+npm run build
+# Link or copy into your n8n custom nodes directory, then restart n8n.
+```
+
+See [n8n community nodes](https://docs.n8n.io/integrations/community-nodes/installation/).
+
+## Repository layout
+
+- `credentials/DoneThatApi.credentials.ts` – API key auth + connection test
+- `nodes/DoneThat/DoneThat.node.ts` – node UI and execution
+- `nodes/DoneThat/request.ts` – HTTP request builders (unit-tested)
+- `nodes/DoneThat/response.ts` – API envelope → n8n items
+- `nodes/DoneThat/projects.ts` – project dropdown (`loadOptions`)
 
 ## License
 
-MIT
+MIT – see [LICENSE](LICENSE).
