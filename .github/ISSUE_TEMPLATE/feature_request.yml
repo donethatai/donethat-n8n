@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest an improvement for the DoneThat n8n node
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form for workflow needs, missing operations, or compatibility requests.
+  - type: textarea
+    id: use-case
+    attributes:
+      label: Use case
+      description: What workflow are you trying to build?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behavior
+      description: What should the node do?
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What workaround are you using now, if any?
+    validations:
+      required: false
