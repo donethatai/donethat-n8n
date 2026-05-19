@@ -5,7 +5,7 @@
     "esModuleInterop": true,
     "lib": ["es2022"],
     "module": "commonjs",
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "outDir": "dist",
     "rootDir": ".",
     "skipLibCheck": true,
@@ -15,5 +15,5 @@
     "types": ["node"]
   },
   "include": ["credentials/**/*.ts", "nodes/**/*.ts", "index.ts"],
-  "exclude": ["dist", "node_modules"]
+  "exclude": ["dist", "node_modules", "test"]
 }

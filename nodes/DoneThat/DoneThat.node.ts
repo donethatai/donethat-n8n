@@ -8,7 +8,8 @@ import type {
 } from 'n8n-workflow';
 import { NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-type DoneThatResource = 'report' | 'message' | 'project' | 'search';
+import {PROJECT_COLOR_HELP} from './constants';
+import {normalizeDoneThatResponse, type DoneThatResource} from './response';
 
 interface DoneThatCredentials {
   baseUrl: string;
@@ -46,7 +47,7 @@ export class DoneThat implements INodeType {
     group: ['transform'],
     version: 1,
     subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
-    description: 'Work with DoneThat reports, summaries, projects, and search',
+    description: 'Work with DoneThat reports, summaries, projects, and search via api.donethat.ai',
     defaults: {
       name: 'DoneThat',
     },
@@ -105,12 +106,14 @@ export class DoneThat implements INodeType {
         type: 'options',
         displayOptions: { show: { resource: ['report'], operation: ['generate'] } },
         options: [
+          { name: 'Activity', value: 'activity' },
           { name: 'Day', value: 'day' },
-          { name: 'Minute', value: 'minute' },
+          { name: 'Minute (legacy alias)', value: 'minute' },
           { name: 'Task', value: 'task' },
           { name: 'Week', value: 'week' },
         ],
         default: 'day',
+        description: 'Activity is per-screenshot tracking. minute is a legacy alias for activity.',
       },
       {
         displayName: 'Additional Fields',
@@ -172,9 +175,9 @@ export class DoneThat implements INodeType {
         name: 'messageDate',
         type: 'string',
         displayOptions: { show: { resource: ['message'], operation: ['get'] } },
-        default: '={{$today.toISODate()}}',
+        default: '={{$today.minus({days: 1}).toISODate()}}',
         required: true,
-        description: 'Date in YYYY-MM-DD format',
+        description: 'Date in YYYY-MM-DD format (API default is yesterday in your timezone)',
       },
       {
         displayName: 'Level',
@@ -242,7 +245,13 @@ export class DoneThat implements INodeType {
         displayOptions: { show: { resource: ['project'], operation: ['create'] } },
         default: {},
         options: [
-          { displayName: 'Color', name: 'color', type: 'string', default: '' },
+          {
+            displayName: 'Color',
+            name: 'color',
+            type: 'string',
+            default: '',
+            description: PROJECT_COLOR_HELP,
+          },
           { displayName: 'Confidential', name: 'confidential', type: 'boolean', default: false },
           { displayName: 'Description', name: 'description', type: 'string', default: '' },
           { displayName: 'Portfolio', name: 'portfolio', type: 'string', default: '' },
@@ -258,7 +267,13 @@ export class DoneThat implements INodeType {
         displayOptions: { show: { resource: ['project'], operation: ['update'] } },
         default: {},
         options: [
-          { displayName: 'Color', name: 'color', type: 'string', default: '' },
+          {
+            displayName: 'Color',
+            name: 'color',
+            type: 'string',
+            default: '',
+            description: PROJECT_COLOR_HELP,
+          },
           { displayName: 'Description', name: 'description', type: 'string', default: '' },
           { displayName: 'Portfolio', name: 'portfolio', type: 'string', default: '' },
           { displayName: 'Private', name: 'private', type: 'boolean', default: false },
@@ -324,10 +339,12 @@ export class DoneThat implements INodeType {
             name: 'sources',
             type: 'multiOptions',
             options: [
-              { name: 'Screenshots', value: 'screenshots' },
+              { name: 'Activity', value: 'activity' },
+              { name: 'Screenshots (legacy alias)', value: 'screenshots' },
               { name: 'Tasks', value: 'tasks' },
             ],
-            default: ['tasks', 'screenshots'],
+            default: ['tasks', 'activity'],
+            description: 'screenshots is accepted by the API as an alias for activity.',
           },
         ],
       },
@@ -351,10 +368,12 @@ export class DoneThat implements INodeType {
           buildRequest(this, baseUrl, resource, operation, itemIndex),
         );
 
-        if (Array.isArray(response)) {
-          returnData.push(...response.map((entry) => ({ json: entry as IDataObject })));
-        } else {
-          returnData.push({ json: response as IDataObject });
+        const itemsOut = normalizeDoneThatResponse(response, resource, operation);
+        for (const entry of itemsOut) {
+          returnData.push({
+            json: entry,
+            pairedItem: { item: itemIndex },
+          });
         }
       } catch (error) {
         if (this.continueOnFail()) {
