@@ -25,7 +25,7 @@ export class DoneThatApi implements ICredentialType {
       default: '',
       required: true,
       description:
-        'Create an API key at https://donethat.ai → Settings → API Access. ' +
+        'Create an API key at https://app.donethat.ai → Settings → API Access. ' +
         `Requires user:read for credential testing. Scopes and endpoints: ${API_DOCS_URL}`,
     },
     {
