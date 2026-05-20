@@ -1,6 +1,7 @@
 node_modules/
 dist/
 coverage/
+.n8n-live/
 .DS_Store
 .env
 *.tgz

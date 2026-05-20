@@ -99,6 +99,55 @@ describe('request builders', () => {
     expect(req.body).toMatchObject({name: 'Renamed', archived: true, color: '#FFB623'});
   });
 
+  it('routes buildDoneThatRequest for project create without archive params', () => {
+    const requested: string[] = [];
+    const req = buildDoneThatRequest({
+      baseUrl: 'https://api.donethat.ai',
+      resource: 'project',
+      operation: 'create',
+      getParameter: (name) => {
+        requested.push(name);
+        if (name === 'projectName') return 'Sample';
+        throw new Error(`unexpected parameter: ${name}`);
+      },
+      getCollection: (name) => {
+        requested.push(name);
+        return {private: true, description: 'test'};
+      },
+    });
+    expect(requested).not.toContain('projectArchived');
+    expect(requested).not.toContain('projectId');
+    expect(req).toMatchObject({
+      method: 'POST',
+      url: 'https://api.donethat.ai/projects',
+      body: {name: 'Sample', private: true, description: 'test'},
+    });
+  });
+
+  it('routes buildDoneThatRequest for project archive without create/update params', () => {
+    const requested: string[] = [];
+    const req = buildDoneThatRequest({
+      baseUrl: 'https://api.donethat.ai',
+      resource: 'project',
+      operation: 'archive',
+      getParameter: (name) => {
+        requested.push(name);
+        if (name === 'projectId') return 'p1';
+        if (name === 'projectArchived') return true;
+        throw new Error(`unexpected parameter: ${name}`);
+      },
+      getCollection: () => {
+        throw new Error('unexpected collection');
+      },
+    });
+    expect(requested).toEqual(['projectId', 'projectArchived']);
+    expect(req).toMatchObject({
+      method: 'POST',
+      url: 'https://api.donethat.ai/projects/p1',
+      body: {archived: true},
+    });
+  });
+
   it('routes buildDoneThatRequest for project get', () => {
     const req = buildDoneThatRequest({
       baseUrl: 'https://api.donethat.ai',

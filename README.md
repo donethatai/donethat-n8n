@@ -25,16 +25,16 @@ Community [n8n](https://n8n.io) node for [DoneThat](https://donethat.ai). Uses A
 
 | Field | Purpose |
 | :--- | :--- |
-| **Connection name** | Friendly label in n8n (not a URL) |
 | **API key** | From https://donethat.ai → Settings → API Access |
 | **Base URL** | `https://api.donethat.ai` (override only for testing) |
 
-Credential test: `GET /projects`.
+Credential test: `GET /user`.
 
 ### API key scopes
 
 | Scope | Used for |
 | :--- | :--- |
+| `user:read` | Credential test |
 | `reports:read` | Reports |
 | `messages:read` or `reports:read` | Summary messages |
 | `projects:read` | List/get projects |
@@ -50,9 +50,27 @@ npm run lint
 npm test
 ```
 
-`npm run build` runs `scripts/verify-n8n-package.mjs` to confirm compiled node/credential classes, the icon asset, and credential test (`GET /projects`) match what n8n loads from `package.json`.
+`npm run build` runs `scripts/verify-n8n-package.mjs` to confirm compiled node/credential classes, the icon asset, and credential test (`GET /user`) match what n8n loads from `package.json`.
 
-### Install in n8n (local)
+### Live testing
+
+Two commands exercise a real n8n instance with this package loaded. Both pick **Node 22** from nvm automatically when your shell is on an older Node (n8n 2.21 needs Node ≥22.16). Install Node 22 if needed: `nvm install 22`.
+
+| Command | What it does |
+| :--- | :--- |
+| `npm run n8n:live` | **Interactive dev.** Builds the node, installs n8n once under `.n8n-live/` (~1–2 GB disk; first run takes several minutes), loads the packed DoneThat node, imports two sample workflows, starts n8n at **http://127.0.0.1:5678**. Add a DoneThat API credential in the UI, then run the workflows. Press Ctrl+C to stop. |
+| `npm run test:live` | **CI smoke test.** Same install flow in a temp directory, starts n8n, checks `/healthz` and that the DoneThat node + credentials appear in n8n metadata, then exits. No browser needed. |
+
+After you change node code, run `npm run build` and `npm run n8n:live` again so the custom extension is repacked and reloaded.
+
+Optional env vars:
+
+- `N8N_LIVE_VERSION=2.21.4` — n8n version to install (default: latest on npm, currently 2.21.4)
+- `N8N_PORT=5678` — port for `n8n:live` only
+
+`.n8n-live/` is gitignored (n8n install, user DB, caches). Delete it to free disk or reset local state: `rm -rf .n8n-live`.
+
+### Install in n8n (production-like)
 
 ```bash
 npm run build
@@ -68,6 +86,10 @@ See [n8n community nodes](https://docs.n8n.io/integrations/community-nodes/insta
 - `nodes/DoneThat/request.ts` – HTTP request builders (unit-tested)
 - `nodes/DoneThat/response.ts` – API envelope → n8n items
 - `nodes/DoneThat/projects.ts` – project dropdown (`loadOptions`)
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md).
 
 ## License
 

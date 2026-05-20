@@ -24,7 +24,7 @@ describe('n8n package build artifacts', () => {
     expect(credMod.DoneThatApi).toBeDefined();
     expect((credMod as {default?: unknown}).default).toBeUndefined();
     expect(new credMod.DoneThatApi().name).toBe('doneThatApi');
-    expect(new credMod.DoneThatApi().test.request.url).toBe('/projects');
+    expect(new credMod.DoneThatApi().test.request.url).toBe('/user');
 
     expect(nodeMod.DoneThat).toBeDefined();
     expect(new nodeMod.DoneThat().description.name).toBe('doneThat');

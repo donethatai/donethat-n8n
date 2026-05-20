@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-donethat",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "n8n community node for DoneThat reports, summaries, projects, and search.",
   "keywords": [
     "n8n-community-node-package",
@@ -26,8 +26,10 @@
     "dev": "tsc -p tsconfig.json --watch",
     "format": "prettier --write .",
     "lint": "eslint .",
+    "n8n:live": "node scripts/n8n-live.mjs start",
     "test": "npm run build && jest --testTimeout 30000",
     "test:coverage": "npm run build && jest --coverage --testTimeout 30000",
+    "test:live": "node scripts/n8n-live.mjs test",
     "prepack": "npm run build"
   },
   "engines": {
@@ -36,6 +38,7 @@
   "files": [
     "dist",
     "README.md",
+    "CHANGELOG.md",
     "LICENSE"
   ],
   "n8n": {

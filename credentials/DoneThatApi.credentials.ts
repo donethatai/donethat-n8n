@@ -16,14 +16,6 @@ export class DoneThatApi implements ICredentialType {
 
   properties: INodeProperties[] = [
     {
-      displayName: 'Connection Name',
-      name: 'connectionName',
-      type: 'string',
-      default: 'DoneThat',
-      required: false,
-      description: 'A short label for this account in n8n (e.g. "Work"). Not a URL.',
-    },
-    {
       displayName: 'API Key',
       name: 'apiKey',
       type: 'string',
@@ -34,7 +26,7 @@ export class DoneThatApi implements ICredentialType {
       required: true,
       description:
         'Create an API key at https://donethat.ai → Settings → API Access. ' +
-        `Scopes and endpoints: ${API_DOCS_URL}`,
+        `Requires user:read for credential testing. Scopes and endpoints: ${API_DOCS_URL}`,
     },
     {
       displayName: 'Base URL',
@@ -58,7 +50,7 @@ export class DoneThatApi implements ICredentialType {
   test: ICredentialTestRequest = {
     request: {
       baseURL: '={{$credentials.baseUrl}}',
-      url: '/projects',
+      url: '/user',
     },
   };
 }

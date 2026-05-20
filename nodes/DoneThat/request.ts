@@ -242,14 +242,21 @@ export function buildDoneThatRequest(params: BuildRequestParams): IHttpRequestOp
       };
     }
 
-    const projectName = getParameter('projectName');
+    if (operation === 'archive') {
+      return buildProjectMutationRequest({
+        baseUrl,
+        operation,
+        projectId: String(getParameter('projectId')),
+        archived: getParameter('projectArchived') as boolean | undefined,
+      });
+    }
+
     return buildProjectMutationRequest({
       baseUrl,
       operation,
       projectId: operation === 'create' ? undefined : String(getParameter('projectId')),
-      name: typeof projectName === 'string' ? projectName : '',
+      name: String(getParameter('projectName')),
       fields: getCollection('projectFields'),
-      archived: getParameter('projectArchived') as boolean | undefined,
     });
   }
 

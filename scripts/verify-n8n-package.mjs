@@ -35,8 +35,8 @@ for (const rel of pkg.n8n?.credentials ?? []) {
   if (instance.name !== 'doneThatApi') {
     errors.push('credential name must be doneThatApi');
   }
-  if (!instance.test?.request?.url) {
-    errors.push('credential missing test GET /projects');
+  if (instance.test?.request?.url !== '/user') {
+    errors.push('credential test must use GET /user');
   }
   if (instance.documentationUrl !== 'https://donethat.ai/api-reference') {
     errors.push(`credential documentationUrl must be public API reference, got ${instance.documentationUrl}`);
@@ -64,4 +64,4 @@ if (errors.length > 0) {
   process.exit(1);
 }
 
-console.log('n8n package OK (DoneThat node + credentials, icon, auth test)');
+console.log('n8n package OK (DoneThat node + credentials, icon, GET /user auth test)');
