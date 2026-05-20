@@ -1,19 +1,25 @@
-import type {IHttpRequestOptions} from 'n8n-workflow';
+import type {IHttpRequestOptions, INodeListSearchItems} from 'n8n-workflow';
 
 import {normalizeDoneThatResponse} from './response';
 
 /**
- * Map a projects API response to n8n dropdown options.
+ * Map a projects API response to Resource Locator list-search results.
  *
  * @param response - Raw API JSON
- * @return id/name pairs for options fields
+ * @param filter   - Optional case-insensitive substring filter (from the RLC search box)
+ * @return name/value pairs for the resourceLocator list mode
  */
-export function projectOptionsFromResponse(
+export function searchProjectsFromResponse(
   response: unknown,
-): Array<{name: string; value: string}> {
-  const rows = normalizeDoneThatResponse(response, 'project', 'list');
+  filter?: string,
+): INodeListSearchItems[] {
+  const rows = normalizeDoneThatResponse(response, 'project', 'getMany');
+  const needle = filter?.trim().toLowerCase();
   return rows
     .filter((row) => typeof row.id === 'string' && typeof row.name === 'string')
+    .filter((row) =>
+      needle ? (row.name as string).toLowerCase().includes(needle) : true,
+    )
     .map((row) => ({
       name: row.name as string,
       value: row.id as string,

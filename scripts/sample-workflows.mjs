@@ -95,7 +95,7 @@ export const sampleWorkflows = [
           name: 'Projects - List Active',
           position: [320, 480],
           resource: 'project',
-          operation: 'list',
+          operation: 'getMany',
           parameters: { includeArchived: false, projectSort: 'updatedAt' },
         }),
         doneThatNode({
@@ -160,7 +160,7 @@ export const sampleWorkflows = [
           position: [600, 360],
           resource: 'project',
           operation: 'get',
-          parameters: { projectId: '={{$json.id}}' },
+          parameters: { projectId: { __rl: true, value: '={{$json.id}}', mode: 'id' } },
           continueOnFail: false,
         }),
         doneThatNode({
@@ -170,7 +170,7 @@ export const sampleWorkflows = [
           resource: 'project',
           operation: 'update',
           parameters: {
-            projectId: '={{$json.id}}',
+            projectId: { __rl: true, value: '={{$json.id}}', mode: 'id' },
             projectName: '={{$json.name}}',
             projectFields: {
               description: 'Updated by the DoneThat n8n sample workflow before archiving.',
@@ -184,7 +184,10 @@ export const sampleWorkflows = [
           position: [1200, 360],
           resource: 'project',
           operation: 'archive',
-          parameters: { projectId: '={{$json.id}}', projectArchived: true },
+          parameters: {
+            projectId: { __rl: true, value: '={{$json.id}}', mode: 'id' },
+            projectArchived: true,
+          },
           continueOnFail: false,
         }),
       ],

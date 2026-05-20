@@ -3,16 +3,20 @@ import type {
   IExecuteFunctions,
   ILoadOptionsFunctions,
   INodeExecutionData,
-  INodePropertyOptions,
+  INodeListSearchResult,
   INodeType,
   INodeTypeDescription,
 } from 'n8n-workflow';
 import {NodeConnectionTypes, NodeOperationError} from 'n8n-workflow';
 
 import {PROJECT_COLOR_HELP, PROJECT_COLORS} from './constants';
-import {projectListHttpOptions, projectOptionsFromResponse} from './projects';
-import {buildDoneThatRequest, trimBaseUrl} from './request';
-import {normalizeDoneThatResponse, type DoneThatResource} from './response';
+import {projectListHttpOptions, searchProjectsFromResponse} from './projects';
+import {buildDoneThatRequest, buildProjectMutationRequest, trimBaseUrl} from './request';
+import {
+  normalizeDoneThatResponse,
+  simplifyDoneThatItems,
+  type DoneThatResource,
+} from './response';
 
 const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((value) => ({name: value, value}));
 
@@ -89,12 +93,21 @@ export class DoneThat implements INodeType {
         options: [
           { name: 'Activity', value: 'activity' },
           { name: 'Day', value: 'day' },
-          { name: 'Minute (legacy alias)', value: 'minute' },
+          { name: 'Minute (Legacy Alias)', value: 'minute' },
           { name: 'Task', value: 'task' },
           { name: 'Week', value: 'week' },
         ],
         default: 'day',
         description: 'Activity is per-screenshot tracking. minute is a legacy alias for activity.',
+      },
+      {
+        displayName: 'Simplify',
+        name: 'simplify',
+        type: 'boolean',
+        displayOptions: { show: { resource: ['report'], operation: ['generate'] } },
+        default: false,
+        description:
+          'Whether to return a simplified version of the response instead of the raw data',
       },
       {
         displayName: 'Additional Fields',
@@ -121,6 +134,7 @@ export class DoneThat implements INodeType {
             name: 'projectIds',
             type: 'string',
             default: '',
+            placeholder: 'e.g. proj_01HABC, proj_01HDEF',
             description: 'Comma-separated project IDs',
           },
           {
@@ -138,6 +152,7 @@ export class DoneThat implements INodeType {
             name: 'teamIds',
             type: 'string',
             default: '',
+            placeholder: 'e.g. team_01HABC, team_01HDEF',
             description: 'Comma-separated team IDs',
           },
         ],
@@ -195,39 +210,63 @@ export class DoneThat implements INodeType {
         options: [
           { name: 'Archive', value: 'archive', action: 'Archive or unarchive a project' },
           { name: 'Create', value: 'create', action: 'Create a project' },
+          { name: 'Create or Update', value: 'upsert', action: 'Create or update a project' },
           { name: 'Get', value: 'get', action: 'Get a project' },
-          { name: 'List', value: 'list', action: 'List projects' },
+          { name: 'Get Many', value: 'getMany', action: 'Get many projects' },
           { name: 'Update', value: 'update', action: 'Update a project' },
         ],
-        default: 'list',
+        default: 'getMany',
       },
       {
         displayName: 'Project',
         name: 'projectId',
-        type: 'options',
-        typeOptions: {
-          loadOptionsMethod: 'getProjects',
-        },
+        type: 'resourceLocator',
+        default: { mode: 'list', value: '' },
+        required: true,
         displayOptions: {
           show: {resource: ['project'], operation: ['get', 'update', 'archive']},
         },
-        default: '',
-        required: true,
-        description: 'Loaded from GET /projects (includes archived).',
+        description: 'Pick from the list or paste an existing project ID',
+        modes: [
+          {
+            displayName: 'From List',
+            name: 'list',
+            type: 'list',
+            placeholder: 'Select a project...',
+            typeOptions: {
+              searchListMethod: 'searchProjects',
+              searchable: true,
+            },
+          },
+          {
+            displayName: 'By ID',
+            name: 'id',
+            type: 'string',
+            placeholder: 'e.g. proj_01HABC...',
+            validation: [
+              {
+                type: 'regex',
+                properties: {regex: '.+', errorMessage: 'Project ID is required'},
+              },
+            ],
+          },
+        ],
       },
       {
         displayName: 'Name',
         name: 'projectName',
         type: 'string',
-        displayOptions: { show: { resource: ['project'], operation: ['create', 'update'] } },
+        displayOptions: { show: { resource: ['project'], operation: ['create', 'update', 'upsert'] } },
         default: '',
+        placeholder: 'e.g. Q3 Roadmap',
+        description: 'For Create or Update (upsert), this is also the lookup key',
       },
       {
         displayName: 'Additional Fields',
         name: 'projectFields',
         type: 'collection',
         placeholder: 'Add Field',
-        displayOptions: { show: { resource: ['project'], operation: ['create'] } },
+        displayOptions: { show: { resource: ['project'], operation: ['create', 'upsert'] } },
         default: {},
         options: [
           {
@@ -239,10 +278,28 @@ export class DoneThat implements INodeType {
             description: PROJECT_COLOR_HELP,
           },
           {displayName: 'Confidential', name: 'confidential', type: 'boolean', default: false},
-          { displayName: 'Description', name: 'description', type: 'string', default: '' },
-          { displayName: 'Portfolio', name: 'portfolio', type: 'string', default: '' },
+          {
+            displayName: 'Description',
+            name: 'description',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Internal infra rollout',
+          },
+          {
+            displayName: 'Portfolio',
+            name: 'portfolio',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Platform',
+          },
           { displayName: 'Private', name: 'private', type: 'boolean', default: false },
-          { displayName: 'Team', name: 'team', type: 'string', default: '' },
+          {
+            displayName: 'Team',
+            name: 'team',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Backend',
+          },
         ],
       },
       {
@@ -261,16 +318,34 @@ export class DoneThat implements INodeType {
             default: '',
             description: PROJECT_COLOR_HELP,
           },
-          {displayName: 'Description', name: 'description', type: 'string', default: ''},
-          {displayName: 'Portfolio', name: 'portfolio', type: 'string', default: ''},
+          {
+            displayName: 'Description',
+            name: 'description',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Internal infra rollout',
+          },
+          {
+            displayName: 'Portfolio',
+            name: 'portfolio',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Platform',
+          },
           {displayName: 'Private', name: 'private', type: 'boolean', default: false},
-          {displayName: 'Team', name: 'team', type: 'string', default: ''},
+          {
+            displayName: 'Team',
+            name: 'team',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. Backend',
+          },
           {
             displayName: 'Archived',
             name: 'archived',
             type: 'boolean',
             default: false,
-            description: 'Set false to unarchive when updating.',
+            description: 'Whether to archive the project on update. Set false to unarchive',
           },
         ],
       },
@@ -285,14 +360,14 @@ export class DoneThat implements INodeType {
         displayName: 'Include Archived',
         name: 'includeArchived',
         type: 'boolean',
-        displayOptions: { show: { resource: ['project'], operation: ['list'] } },
+        displayOptions: { show: { resource: ['project'], operation: ['getMany'] } },
         default: false,
       },
       {
         displayName: 'Sort By',
         name: 'projectSort',
         type: 'options',
-        displayOptions: { show: { resource: ['project'], operation: ['list'] } },
+        displayOptions: { show: { resource: ['project'], operation: ['getMany'] } },
         options: [
           { name: 'Created At', value: 'createdAt' },
           { name: 'Updated At', value: 'updatedAt' },
@@ -315,7 +390,17 @@ export class DoneThat implements INodeType {
         type: 'string',
         displayOptions: { show: { resource: ['search'], operation: ['search'] } },
         default: '',
+        placeholder: 'e.g. quarterly planning',
         required: true,
+      },
+      {
+        displayName: 'Simplify',
+        name: 'simplify',
+        type: 'boolean',
+        displayOptions: { show: { resource: ['search'], operation: ['search'] } },
+        default: false,
+        description:
+          'Whether to return a simplified version of the response instead of the raw data',
       },
       {
         displayName: 'Additional Fields',
@@ -325,7 +410,13 @@ export class DoneThat implements INodeType {
         displayOptions: { show: { resource: ['search'], operation: ['search'] } },
         default: {},
         options: [
-          { displayName: 'Context', name: 'context', type: 'string', default: '' },
+          {
+            displayName: 'Context',
+            name: 'context',
+            type: 'string',
+            default: '',
+            placeholder: 'e.g. retrospective notes',
+          },
           { displayName: 'Days', name: 'days', type: 'number', default: 7 },
           { displayName: 'Limit', name: 'limit', type: 'number', default: 20 },
           {
@@ -334,11 +425,11 @@ export class DoneThat implements INodeType {
             type: 'multiOptions',
             options: [
               { name: 'Activity', value: 'activity' },
-              { name: 'Screenshots (legacy alias)', value: 'screenshots' },
+              { name: 'Screenshots (Legacy Alias)', value: 'screenshots' },
               { name: 'Tasks', value: 'tasks' },
             ],
             default: ['tasks', 'activity'],
-            description: 'screenshots is accepted by the API as an alias for activity.',
+            description: 'Screenshots is accepted by the API as an alias for activity',
           },
         ],
       },
@@ -346,8 +437,11 @@ export class DoneThat implements INodeType {
   };
 
   methods = {
-    loadOptions: {
-      async getProjects(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+    listSearch: {
+      async searchProjects(
+        this: ILoadOptionsFunctions,
+        filter?: string,
+      ): Promise<INodeListSearchResult> {
         const credentials = await this.getCredentials('doneThatApi');
         const baseUrl = trimBaseUrl(credentials.baseUrl as string);
         const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
@@ -355,7 +449,7 @@ export class DoneThat implements INodeType {
           'doneThatApi',
           projectListHttpOptions(baseUrl),
         );
-        return projectOptionsFromResponse(response);
+        return {results: searchProjectsFromResponse(response, filter)};
       },
     },
   };
@@ -366,25 +460,100 @@ export class DoneThat implements INodeType {
     const credentials = (await this.getCredentials('doneThatApi')) as unknown as DoneThatCredentials;
     const baseUrl = trimBaseUrl(credentials.baseUrl);
 
+    /**
+     * Read a Resource Locator value as a bare string id, regardless of mode.
+     */
+    const readProjectId = (itemIndex: number): string => {
+      const raw = this.getNodeParameter('projectId', itemIndex, '') as
+        | string
+        | {value?: string; mode?: string};
+      if (typeof raw === 'string') return raw;
+      return String(raw?.value ?? '');
+    };
+
     for (let itemIndex = 0; itemIndex < items.length; itemIndex++) {
       const resource = this.getNodeParameter('resource', itemIndex) as DoneThatResource;
       const operation = this.getNodeParameter('operation', itemIndex);
 
       try {
-        const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
-          this,
-          'doneThatApi',
-          buildDoneThatRequest({
-            baseUrl,
-            resource,
-            operation,
-            getParameter: (name) => this.getNodeParameter(name, itemIndex),
-            getCollection: (name) =>
-              this.getNodeParameter(name, itemIndex, {}) as IDataObject,
-          }),
-        );
+        let response: unknown;
 
-        const itemsOut = normalizeDoneThatResponse(response, resource, operation);
+        if (resource === 'project' && operation === 'upsert') {
+          // Upsert: look up by exact name, then update or create.
+          // NOTE: name match is not unique in DoneThat. If multiple projects share the name,
+          // we update the first match returned by GET /projects.
+          const projectName = this.getNodeParameter('projectName', itemIndex) as string;
+          const fields = this.getNodeParameter(
+            'projectFields',
+            itemIndex,
+            {},
+          ) as IDataObject;
+          const lookup: unknown = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            'doneThatApi',
+            projectListHttpOptions(baseUrl),
+          );
+          const projects = ((lookup as IDataObject).projects ?? []) as IDataObject[];
+          const existing = projects.find((p) => p.name === projectName);
+          const existingId = existing && typeof existing.id === 'string' ? existing.id : undefined;
+          let mutation;
+          if (existingId) {
+            // POST /projects/:id rejects `confidential` (400) because it would change
+            // visibility of existing tasks. Strip it on the update branch of upsert so
+            // the operation does not fail when the user sets Confidential on a project
+            // that already exists.
+            const updateFields = {...fields};
+            delete updateFields.confidential;
+            mutation = buildProjectMutationRequest({
+              baseUrl,
+              operation: 'update',
+              projectId: existingId,
+              name: projectName,
+              fields: updateFields,
+            });
+          } else {
+            mutation = buildProjectMutationRequest({
+              baseUrl,
+              operation: 'create',
+              name: projectName,
+              fields,
+            });
+          }
+          response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            'doneThatApi',
+            mutation,
+          );
+        } else {
+          response = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            'doneThatApi',
+            buildDoneThatRequest({
+              baseUrl,
+              resource,
+              operation,
+              getParameter: (name) => {
+                if (name === 'projectId') return readProjectId(itemIndex);
+                return this.getNodeParameter(name, itemIndex);
+              },
+              getCollection: (name) =>
+                this.getNodeParameter(name, itemIndex, {}) as IDataObject,
+            }),
+          );
+        }
+
+        let itemsOut = normalizeDoneThatResponse(response, resource, operation);
+
+        const simplifyApplies =
+          (resource === 'report' && operation === 'generate') ||
+          (resource === 'search' && operation === 'search');
+        if (simplifyApplies) {
+          const simplify = this.getNodeParameter('simplify', itemIndex, false) as boolean;
+          if (simplify) {
+            itemsOut = simplifyDoneThatItems(itemsOut, resource);
+          }
+        }
+
         for (const entry of itemsOut) {
           returnData.push({
             json: entry,

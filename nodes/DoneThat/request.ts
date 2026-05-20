@@ -225,7 +225,7 @@ export function buildDoneThatRequest(params: BuildRequestParams): IHttpRequestOp
   }
 
   if (resource === 'project') {
-    if (operation === 'list') {
+    if (operation === 'getMany') {
       return buildProjectListRequest({
         baseUrl,
         includeArchived: Boolean(getParameter('includeArchived')),

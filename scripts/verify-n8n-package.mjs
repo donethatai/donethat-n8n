@@ -54,8 +54,8 @@ for (const rel of pkg.n8n?.nodes ?? []) {
   if (instance.description?.name !== 'doneThat') {
     errors.push('node description.name must be doneThat');
   }
-  if (!instance.methods?.loadOptions?.getProjects) {
-    errors.push('node missing loadOptions.getProjects');
+  if (!instance.methods?.listSearch?.searchProjects) {
+    errors.push('node missing listSearch.searchProjects');
   }
 }
 

@@ -1,6 +1,3 @@
-# Pull Request
+# Pull request
 
-This repository is not accepting external pull requests yet.
-
-Please open an issue first unless a DoneThat maintainer explicitly requested
-this PR.
+Not accepting external PRs right now. Open an issue first.

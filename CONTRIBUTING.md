@@ -1,14 +1,7 @@
 # Contributing
 
-This repository is not accepting external code contributions yet.
+Not accepting external code contributions right now.
 
-For now, please use GitHub issues to report bugs, request features, or share
-compatibility feedback:
+Use issues for bug reports, feature requests, and compatibility feedback: https://github.com/donethatai/donethat-n8n/issues. Check for an existing match first and include enough detail to reproduce.
 
-https://github.com/donethatai/donethat-n8n/issues
-
-Before opening an issue, check for an existing matching issue and include enough
-detail to reproduce or understand the request.
-
-Please do not open pull requests unless a DoneThat maintainer explicitly asks
-you to do so.
+Don't open pull requests unless a maintainer asked.

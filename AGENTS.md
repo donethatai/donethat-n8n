@@ -1,70 +1,63 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for AI coding agents working in this repo. Convention: https://agents.md/.
 
 ## What this is
 
-n8n community node package (`n8n-nodes-donethat`) wrapping the DoneThat API. Single node (`DoneThat`) with four resources (`report`, `message`, `project`, `search`) plus a credential (`DoneThatApi`). Goal is acceptance into n8n's verified-community-nodes registry.
+n8n community node for the DoneThat API. One node (`DoneThat`) with resources `report`, `message`, `project`, `search`, plus a credential (`DoneThatApi`). Target: n8n's verified community nodes registry.
 
 ## Commands
 
-Node 22.16+ is required (see `.nvmrc`, `package.json#engines`). `npm run n8n:live` and `npm run test:live` auto-switch to Node 22 via nvm; everything else assumes you're already on it.
+Node 22.16+. `npm run n8n:live` and `test:live` auto-switch to Node 22 via nvm.
 
-| Command | Notes |
-| :--- | :--- |
-| `npm run build` | Compiles to `dist/`, copies the SVG icon, then runs `scripts/verify-n8n-package.mjs` which fails the build if the n8n contracts below drift. |
-| `npm run lint` | Local ESLint flat config (`eslint.config.cjs`); typescript-eslint recommended + recommended-requiring-type-checking + prettier. |
-| `npm test` | Runs `npm run build` first, then Jest. Tests rely on `dist/` so you cannot skip the build. |
-| `npx jest test/request.test.ts -t "report"` | Run a single test file or pattern. |
-| `npm run n8n:live` | Builds, installs a real n8n into `.n8n-live/` on first run (~1 to 2 GB, several minutes), packs this node, imports sample workflows, starts n8n at http://127.0.0.1:5678. After code changes rerun this whole command to repack. |
-| `npm run test:live` | Headless variant: same install, asserts `/healthz` plus that the node/credentials appear in n8n metadata. Used in CI. |
-| `npm run release` | Interactive release-it flow via `@n8n/node-cli` (lint, build, version bump, changelog, commit, tag, push). The tag push is what triggers `.github/workflows/publish.yml` to publish to npm with provenance. |
-
-`.n8n-live/` is gitignored; delete it to reset local n8n state.
+- `npm run build`: compiles to `dist/`, copies the SVG, runs `scripts/verify-n8n-package.mjs` (fails the build if the contracts below drift).
+- `npm test`: runs `build` first, then Jest. Tests assert against `dist/`, so the build can't be skipped.
+- `npx jest test/request.test.ts -t "report"`: single file or pattern.
+- `npm run lint`: local ESLint (typescript-eslint recommended + recommended-requiring-type-checking).
+- `npm run n8n:live`: builds, installs n8n into `.n8n-live/` (first run 1-2 GB), packs and loads this node, opens http://127.0.0.1:5678.
+- `npm run test:live`: headless CI variant.
+- `npm run release`: interactive release-it (lint, build, bump, changelog, commit, tag, push). Tag push triggers `.github/workflows/publish.yml`.
 
 ## Architecture
 
-`index.ts` is intentionally empty (`export {}`). n8n loads classes directly from paths declared in `package.json#n8n.nodes` and `package.json#n8n.credentials`, not from `main`.
+`index.ts` is empty. n8n loads classes directly from the paths in `package.json#n8n`.
 
-The node deliberately splits UI/orchestration from logic so the logic can be unit-tested without an n8n runtime:
+The node splits UI from logic so the logic is unit-testable without an n8n runtime:
 
-- `nodes/DoneThat/DoneThat.node.ts`: `INodeType` description (UI properties, `displayOptions`), `loadOptions.getProjects`, and `execute()`. Contains no request shaping; delegates to the helpers below.
-- `nodes/DoneThat/request.ts`: Pure functions that turn `(resource, operation, params)` into `IHttpRequestOptions`. Per-resource builders (`buildReportRequest`, `buildMessageRequest`, `buildProjectListRequest`, `buildProjectMutationRequest`, `buildSearchRequest`) plus a dispatcher (`buildDoneThatRequest`).
-- `nodes/DoneThat/response.ts`: `normalizeDoneThatResponse` unwraps the DoneThat `{ success, ... }` envelope into n8n items. Throws on `success === false`. Resource-aware: report -> `body.rows`, search -> `body.results`, project list -> `body.projects`, project single -> `body.project`, message -> `{level, format, content, metadata}`.
-- `nodes/DoneThat/projects.ts`: Builds the `GET /projects` request and maps the response into `{name, value}` options for the project dropdown.
-- `nodes/DoneThat/dates.ts`: `dateToUtcStartMs` / `dateToUtcEndExclusiveMs` for the report `dateRange` body (DoneThat expects ms epoch, end-exclusive).
-- `nodes/DoneThat/constants.ts`: `API_BASE_URL`, `API_DOCS_URL`, project color palette.
-- `credentials/DoneThatApi.credentials.ts`: Generic auth via `x-api-key` header, base URL is user-configurable for testing, credential test hits `GET /user`.
+- `DoneThat.node.ts`: `INodeType` description, `methods.listSearch.searchProjects` (powers the project Resource Locator's From-List mode), and `execute()`. Owns the multi-step upsert flow (lookup by name, then create or update).
+- `request.ts`: pure builders that turn `(resource, operation, params)` into `IHttpRequestOptions`. Per-resource builders plus a dispatcher (`buildDoneThatRequest`).
+- `response.ts`: `normalizeDoneThatResponse` unwraps the `{ success, ... }` envelope into n8n items (throws on `success === false`). `simplifyDoneThatItems` powers the user-facing `Simplify` toggle. Curated keys in `SIMPLIFY_KEYS` match `ReportRow` (snake_case, duration in minutes, one of `date`/`timestampIso`/`week` per row) and `SearchContentResultItem` (with `metadata.*` flattened to top-level).
+- `projects.ts`: `GET /projects` request + RLC list-mode mapping with case-insensitive substring filter.
+- `dates.ts`: `dateToUtcStartMs` / `dateToUtcEndExclusiveMs` for the report `dateRange` (DoneThat takes ms epoch, end-exclusive).
+- `constants.ts`: API URLs, project color palette.
+- `credentials/DoneThatApi.credentials.ts`: `x-api-key` header, configurable base URL, credential test against `GET /user`.
 
-All HTTP goes through `this.helpers.httpRequestWithAuthentication.call(this, 'doneThatApi', options)`. Never use `fetch`/`axios`/env vars/`fs`: n8n's verification guidelines forbid them, and the package has zero runtime `dependencies`.
+All HTTP goes through `this.helpers.httpRequestWithAuthentication.call(this, 'doneThatApi', options)`. No `fetch`/`axios`, no env vars, no `fs`, no runtime dependencies. n8n's verification rejects all of these.
 
-## Hard contracts (enforced by `scripts/verify-n8n-package.mjs`)
+## Contracts enforced by `scripts/verify-n8n-package.mjs`
 
-The post-build verifier fails the build if any of these change. If you rename anything, update both the code and the verifier in the same commit:
+The post-build verifier fails the build if any of these drift. Rename anything, update the verifier in the same commit:
 
-- Credential exports a class **named** `DoneThatApi` (not default export).
-- Credential instance `name === 'doneThatApi'`.
-- Credential `test.request.url === '/user'`.
-- Credential `documentationUrl === 'https://donethat.ai/api-reference'`.
-- Node exports a class **named** `DoneThat` (not default export).
-- Node `description.name === 'doneThat'`.
-- Node has `methods.loadOptions.getProjects`.
-- `dist/nodes/DoneThat/donethat.svg` exists after build (the icon is copied by `scripts/copy-assets.mjs`, not by `tsc`).
+- Credential class is named `DoneThatApi` (not default export).
+- Credential `name === 'doneThatApi'`, `test.request.url === '/user'`, `documentationUrl === 'https://donethat.ai/api-reference'`.
+- Node class is named `DoneThat` (not default export), `description.name === 'doneThat'`.
+- Node has `methods.listSearch.searchProjects` (project Resource Locator's From List mode).
+- `dist/nodes/DoneThat/donethat.svg` exists after build (copied by `scripts/copy-assets.mjs`, not `tsc`).
 
 ## Sample workflows
 
-`scripts/sample-workflows.mjs` defines two workflows that are written into `.n8n-live/workflows/` when `npm run n8n:live` boots. They use `type: 'CUSTOM.doneThat'` because n8n:live loads the package via the custom-extension mechanism, not as an installed npm community node. The community-node type form (`n8n-nodes-donethat.doneThat`) is different; do not copy the sample-workflows JSON verbatim into user-facing docs.
+`scripts/sample-workflows.mjs` generates the workflows that `npm run n8n:live` imports. They use `type: 'CUSTOM.doneThat'` because n8n:live loads this package via the custom-extension mechanism. The installed community-node type is different. Don't copy these JSON files into user-facing docs.
 
 ## Publishing
 
-Publishing to npm is done exclusively via `.github/workflows/publish.yml`, which fires on tag pushes matching `*.*.*` (bare, no `v` prefix). The workflow needs npm Trusted Publisher to be configured on npmjs.com against this repo and workflow filename. Local `npm publish` is blocked by `prepublishOnly: n8n-node prerelease`, which requires `RELEASE_MODE=true` (set only by `n8n-node release`).
+Publishes only via `.github/workflows/publish.yml` on tag pushes matching `*.*.*`. Requires npm Trusted Publisher configured on npmjs.com (owner/repo/workflow filename must match). Local `npm publish` is blocked by `prepublishOnly: n8n-node prerelease`, which only lets through `npm publish` when `RELEASE_MODE=true` (set by `n8n-node release`).
 
-Verify the published package against n8n's checks:
+Verify a published version with:
 
-```bash
+```
 npx @n8n/scan-community-package n8n-nodes-donethat
 ```
 
 ## Style
 
-No em-dashes (Unicode U+2014). Use a colon, comma, parenthetical, or plain hyphen instead.
+No em-dashes (U+2014). Use a colon, comma, parenthetical, or plain hyphen.
