@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-donethat",
-  "version": "0.2.3",
+  "version": "0.3.0",
   "description": "n8n community node for DoneThat reports, summaries, projects, and search.",
   "keywords": [
     "n8n-community-node-package",
