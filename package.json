@@ -18,7 +18,11 @@
   "bugs": {
     "url": "https://github.com/donethatai/donethat-n8n/issues"
   },
-  "author": "DoneThat",
+  "author": {
+    "name": "DoneThat",
+    "email": "christoph@donethat.ai",
+    "url": "https://donethat.ai"
+  },
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "scripts": {
