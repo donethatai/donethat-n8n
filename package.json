@@ -1,7 +1,7 @@
 {
   "name": "n8n-nodes-donethat",
   "version": "0.3.1",
-  "description": "n8n community node for DoneThat reports, summaries, projects, and search.",
+  "description": "n8n community node for DoneThat: time-tracking reports, AI summary messages, projects, and search.",
   "keywords": [
     "n8n-community-node-package",
     "n8n",
@@ -29,7 +29,7 @@
     "build": "rimraf dist && tsc -p tsconfig.json && node scripts/copy-assets.mjs && node scripts/verify-n8n-package.mjs",
     "dev": "tsc -p tsconfig.json --watch",
     "format": "prettier --write .",
-    "lint": "eslint .",
+    "lint": "eslint . package.json",
     "n8n:live": "node scripts/n8n-live.mjs start",
     "test": "npm run build && jest --testTimeout 30000",
     "test:coverage": "npm run build && jest --coverage --testTimeout 30000",
@@ -57,15 +57,12 @@
     ]
   },
   "peerDependencies": {
-    "n8n-workflow": "^2.16.0"
+    "n8n-workflow": "*"
   },
   "devDependencies": {
     "@n8n/node-cli": "^0.31.0",
     "@types/node": "^25.9.0",
-    "@typescript-eslint/eslint-plugin": "^8.59.4",
-    "@typescript-eslint/parser": "^8.59.4",
-    "eslint": "^10.4.0",
-    "eslint-config-prettier": "^10.1.8",
+    "eslint": "^9.39.0",
     "n8n-core": "^2.16.1",
     "n8n-node-dev": "^1.121.16",
     "n8n-workflow": "^2.16.0",

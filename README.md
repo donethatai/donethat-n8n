@@ -5,7 +5,9 @@
 [![Node](https://img.shields.io/badge/node-%3E%3D22.16-339933?logo=node.js&logoColor=white)](package.json)
 [![n8n community node](https://img.shields.io/badge/n8n-community%20node-FF6D5A?logo=n8n&logoColor=white)](https://docs.n8n.io/integrations/community-nodes/)
 
-n8n node for [DoneThat](https://donethat.ai). Reports, summary messages, projects, search.
+[DoneThat](https://donethat.ai) automatically tracks all work and uses this context to boost your productivity: automated timesheets, long-term memory for AIs, proactive coaching, and social sharing for accountability and remote trust. DoneThat is built privacy-first, cross-platform, and takes five minutes to set up.
+
+This n8n community node exposes the DoneThat API: generate time-tracking reports, fetch AI summary messages, manage projects, and search across your activity and tasks.
 
 API base: `https://api.donethat.ai`. Reference: [donethat.ai/api-reference](https://donethat.ai/api-reference).
 

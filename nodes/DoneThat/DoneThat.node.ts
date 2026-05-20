@@ -31,8 +31,10 @@ export class DoneThat implements INodeType {
     icon: 'file:donethat.svg',
     group: ['transform'],
     version: 1,
+    usableAsTool: true,
     subtitle: '={{$parameter["resource"] + ": " + $parameter["operation"]}}',
-    description: 'Reports, summaries, projects, and search via the DoneThat API.',
+    description:
+      'DoneThat automatically tracks all work to boost productivity. This node exposes time-tracking reports, AI summary messages, projects, and search across your activity.',
     defaults: {
       name: 'DoneThat',
     },
@@ -51,10 +53,10 @@ export class DoneThat implements INodeType {
         type: 'options',
         noDataExpression: true,
         options: [
-          { name: 'Report', value: 'report' },
-          { name: 'Summary Message', value: 'message' },
           { name: 'Project', value: 'project' },
+          { name: 'Report', value: 'report' },
           { name: 'Search', value: 'search' },
+          { name: 'Summary Message', value: 'message' },
         ],
         default: 'report',
       },
@@ -182,9 +184,9 @@ export class DoneThat implements INodeType {
         displayOptions: { show: { resource: ['message'], operation: ['get'] } },
         options: [
           { name: 'Day', value: 'day' },
-          { name: 'Week', value: 'week' },
           { name: 'Month', value: 'month' },
           { name: 'Quarter', value: 'quarter' },
+          { name: 'Week', value: 'week' },
           { name: 'Year', value: 'year' },
         ],
         default: 'day',
@@ -311,6 +313,13 @@ export class DoneThat implements INodeType {
         default: {},
         options: [
           {
+            displayName: 'Archived',
+            name: 'archived',
+            type: 'boolean',
+            default: false,
+            description: 'Whether to archive the project on update. Set false to unarchive.',
+          },
+          {
             displayName: 'Color',
             name: 'color',
             type: 'options',
@@ -339,13 +348,6 @@ export class DoneThat implements INodeType {
             type: 'string',
             default: '',
             placeholder: 'e.g. Backend',
-          },
-          {
-            displayName: 'Archived',
-            name: 'archived',
-            type: 'boolean',
-            default: false,
-            description: 'Whether to archive the project on update. Set false to unarchive',
           },
         ],
       },
@@ -381,7 +383,7 @@ export class DoneThat implements INodeType {
         type: 'options',
         noDataExpression: true,
         displayOptions: { show: { resource: ['search'] } },
-        options: [{ name: 'Search', value: 'search', action: 'Search DoneThat content' }],
+        options: [{ name: 'Search', value: 'search', action: 'Search done that content' }],
         default: 'search',
       },
       {
@@ -418,7 +420,11 @@ export class DoneThat implements INodeType {
             placeholder: 'e.g. retrospective notes',
           },
           { displayName: 'Days', name: 'days', type: 'number', default: 7 },
-          { displayName: 'Limit', name: 'limit', type: 'number', default: 20 },
+          { displayName: 'Limit', name: 'limit', type: 'number',
+																																																	typeOptions: {
+																																																		minValue: 1,
+																																																	},
+																																																	description: 'Max number of results to return', default: 50 },
           {
             displayName: 'Sources',
             name: 'sources',

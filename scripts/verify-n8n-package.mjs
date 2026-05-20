@@ -19,9 +19,13 @@ for (const rel of [...(pkg.n8n?.nodes ?? []), ...(pkg.n8n?.credentials ?? [])]) 
   }
 }
 
-const icon = path.join(root, 'dist/nodes/DoneThat/donethat.svg');
-if (!existsSync(icon)) {
-  errors.push('missing dist/nodes/DoneThat/donethat.svg');
+for (const iconPath of [
+  'dist/nodes/DoneThat/donethat.svg',
+  'dist/credentials/donethat.svg',
+]) {
+  if (!existsSync(path.join(root, iconPath))) {
+    errors.push(`missing ${iconPath}`);
+  }
 }
 
 for (const rel of pkg.n8n?.credentials ?? []) {

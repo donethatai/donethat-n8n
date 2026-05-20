@@ -4,7 +4,7 @@ Guidance for AI coding agents working in this repo. Convention: https://agents.m
 
 ## What this is
 
-n8n community node for the DoneThat API. One node (`DoneThat`) with resources `report`, `message`, `project`, `search`, plus a credential (`DoneThatApi`). Target: n8n's verified community nodes registry.
+n8n community node for DoneThat (https://donethat.ai), an automated AI time tracker. One node (`DoneThat`) with resources `report` (time-tracking reports), `message` (AI summary messages), `project` (project CRUD), `search` (across activity and tasks), plus a credential (`DoneThatApi`). Target: n8n's verified community nodes registry.
 
 ## Commands
 
@@ -13,7 +13,7 @@ Node 22.16+. `npm run n8n:live` and `test:live` auto-switch to Node 22 via nvm.
 - `npm run build`: compiles to `dist/`, copies the SVG, runs `scripts/verify-n8n-package.mjs` (fails the build if the contracts below drift).
 - `npm test`: runs `build` first, then Jest. Tests assert against `dist/`, so the build can't be skipped.
 - `npx jest test/request.test.ts -t "report"`: single file or pattern.
-- `npm run lint`: local ESLint (typescript-eslint recommended + recommended-requiring-type-checking).
+- `npm run lint`: ESLint flat config in `eslint.config.mjs`, which imports `@n8n/node-cli/eslint` (the same config bundle `@n8n/scan-community-package` runs against the published tarball). Catches the n8n cloud rules (`@n8n/community-nodes/*`, `n8n-nodes-base/*`) before publish, including `valid-peer-dependencies` (which requires `peerDependencies.n8n-workflow === "*"`), `icon-validation`, `node-usable-as-tool`, alphabetical option ordering, etc. ESLint must be v9, not v10 (n8n's plugin uses ESLint 9 context API).
 - `npm run n8n:live`: builds, installs n8n into `.n8n-live/` (first run 1-2 GB), packs and loads this node, opens http://127.0.0.1:5678.
 - `npm run test:live`: headless CI variant.
 - `npm run release`: interactive release-it (lint, build, bump, changelog, commit, tag, push). Tag push triggers `.github/workflows/publish.yml`.
@@ -52,7 +52,9 @@ The post-build verifier fails the build if any of these drift. Rename anything, 
 
 Publishes only via `.github/workflows/publish.yml` on tag pushes matching `*.*.*`. Requires npm Trusted Publisher configured on npmjs.com (owner/repo/workflow filename must match). Local `npm publish` is blocked by `prepublishOnly: n8n-node prerelease`, which only lets through `npm publish` when `RELEASE_MODE=true` (set by `n8n-node release`).
 
-Verify a published version with:
+After the publish step, the workflow runs `@n8n/scan-community-package` against the new version. This is the same check the Creator Portal runs at submission time, so a green workflow means submission won't fail on lint or provenance. If it fails post-publish, fix and ship a patch.
+
+Manually:
 
 ```
 npx @n8n/scan-community-package n8n-nodes-donethat

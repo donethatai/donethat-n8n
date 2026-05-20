@@ -37,3 +37,11 @@ jobs:
           npm run release
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Scan published version
+        # Same scanner n8n's Creator Portal runs. Confirms provenance is signed
+        # and the tarball passes @n8n/community-nodes lint. Allow a short delay
+        # for npm CDN propagation before the lookup.
+        run: |
+          sleep 20
+          npx --yes @n8n/scan-community-package@latest n8n-nodes-donethat

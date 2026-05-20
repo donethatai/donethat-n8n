@@ -3,6 +3,7 @@ import { dirname } from 'node:path';
 
 const assets = [
   ['nodes/DoneThat/donethat.svg', 'dist/nodes/DoneThat/donethat.svg'],
+  ['credentials/donethat.svg', 'dist/credentials/donethat.svg'],
 ];
 
 await Promise.all(
