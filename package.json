@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-donethat",
-  "version": "0.3.3",
+  "version": "0.3.4",
   "description": "n8n community node for DoneThat: time-tracking reports, AI summary messages, projects, and search.",
   "keywords": [
     "n8n-community-node-package",
