@@ -16,7 +16,7 @@ API base: `https://api.donethat.ai`. Reference: [donethat.ai/api-reference](http
 - **Report**: `Generate` (POST /report). Aggregation: `activity`, `day`, `task`, `week`. `minute` is a legacy alias for `activity`.
 - **Summary message**: `Get` (GET /message).
 - **Project**: `Get Many`, `Get`, `Create`, `Create or Update`, `Update`, `Archive`. No delete.
-- **Search**: `Search` (POST /search). Sources: `tasks`, `activity`. `screenshots` is a legacy alias for `activity`.
+- **Search**: `Search` (POST /search). Sources: `tasks`, `activity`.
 
 ## Credential
 

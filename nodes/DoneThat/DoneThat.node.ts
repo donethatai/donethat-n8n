@@ -431,11 +431,10 @@ export class DoneThat implements INodeType {
             type: 'multiOptions',
             options: [
               { name: 'Activity', value: 'activity' },
-              { name: 'Screenshots (Legacy Alias)', value: 'screenshots' },
               { name: 'Tasks', value: 'tasks' },
             ],
             default: ['tasks', 'activity'],
-            description: 'Screenshots is accepted by the API as an alias for activity',
+            description: 'Sources to search',
           },
         ],
       },
