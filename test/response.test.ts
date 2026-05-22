@@ -1,42 +1,89 @@
+import type {INode} from 'n8n-workflow';
+import {NodeApiError} from 'n8n-workflow';
+
 import {normalizeDoneThatResponse, simplifyDoneThatItems} from '../nodes/DoneThat/response';
 
 describe('normalizeDoneThatResponse', () => {
+  const node: INode = {
+    id: 'test-node',
+    name: 'DoneThat',
+    type: 'CUSTOM.doneThat',
+    typeVersion: 1,
+    position: [0, 0],
+    parameters: {},
+  };
+
   it('unwraps report rows', () => {
     const rows = [{id: 'activity:1'}];
-    expect(normalizeDoneThatResponse({success: true, rows}, 'report', 'get')).toEqual(rows);
+    expect(normalizeDoneThatResponse({success: true, rows}, 'report', 'get', node)).toEqual(
+      rows,
+    );
   });
 
   it('unwraps search results', () => {
     const results = [{source: 'tasks', id: 't1'}];
-    expect(normalizeDoneThatResponse({success: true, results}, 'search', 'search')).toEqual(
+    expect(normalizeDoneThatResponse({success: true, results}, 'search', 'search', node)).toEqual(
       results,
     );
   });
 
   it('unwraps project list (getMany)', () => {
     const projects = [{id: 'p1', name: 'Alpha'}];
-    expect(normalizeDoneThatResponse({success: true, projects}, 'project', 'getMany')).toEqual(
-      projects,
-    );
+    expect(
+      normalizeDoneThatResponse({success: true, projects}, 'project', 'getMany', node),
+    ).toEqual(projects);
   });
 
   it('unwraps single project', () => {
     const project = {id: 'p1', name: 'Alpha'};
-    expect(normalizeDoneThatResponse({success: true, project}, 'project', 'get')).toEqual([
+    expect(normalizeDoneThatResponse({success: true, project}, 'project', 'get', node)).toEqual([
       project,
     ]);
   });
 
   it('throws on API error string', () => {
     expect(() =>
-      normalizeDoneThatResponse({success: false, error: 'forbidden'}, 'report', 'get'),
+      normalizeDoneThatResponse({success: false, error: 'forbidden'}, 'report', 'get', node),
     ).toThrow('forbidden');
   });
 
   it('throws generic message when error is not a string', () => {
-    expect(() => normalizeDoneThatResponse({success: false, error: {code: 1}}, 'report', 'get')).toThrow(
-      'DoneThat API request failed',
-    );
+    expect(() =>
+      normalizeDoneThatResponse({success: false, error: {code: 1}}, 'report', 'get', node),
+    ).toThrow('DoneThat API request failed');
+  });
+
+  it('wraps API envelopes in NodeApiError with item context and raw DoneThat body', () => {
+    const body = {success: false, error: {code: 1}};
+
+    let thrown: unknown;
+    try {
+      normalizeDoneThatResponse(body, 'report', 'get', node, 3);
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(NodeApiError);
+    expect((thrown as NodeApiError).context.itemIndex).toBe(3);
+    expect((thrown as NodeApiError).context.doneThatResponse).toEqual(body);
+    expect((thrown as NodeApiError).httpCode).toBeNull();
+  });
+
+  it('preserves real HTTP status fields from API envelopes', () => {
+    let thrown: unknown;
+    try {
+      normalizeDoneThatResponse(
+        {success: false, statusCode: 403, error: {code: 1}},
+        'report',
+        'get',
+        node,
+      );
+    } catch (error) {
+      thrown = error;
+    }
+
+    expect(thrown).toBeInstanceOf(NodeApiError);
+    expect((thrown as NodeApiError).httpCode).toBe('403');
   });
 
   it('simplifies a day-level report row, dropping aggregated breakdowns', () => {
@@ -125,6 +172,7 @@ describe('normalizeDoneThatResponse', () => {
         },
         'message',
         'get',
+        node,
       ),
     ).toEqual([
       {

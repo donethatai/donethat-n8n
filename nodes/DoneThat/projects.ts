@@ -1,4 +1,4 @@
-import type {IHttpRequestOptions, INodeListSearchItems} from 'n8n-workflow';
+import type {IHttpRequestOptions, INode, INodeListSearchItems} from 'n8n-workflow';
 
 import {normalizeDoneThatResponse} from './response';
 
@@ -11,9 +11,10 @@ import {normalizeDoneThatResponse} from './response';
  */
 export function searchProjectsFromResponse(
   response: unknown,
+  node: INode,
   filter?: string,
 ): INodeListSearchItems[] {
-  const rows = normalizeDoneThatResponse(response, 'project', 'getMany');
+  const rows = normalizeDoneThatResponse(response, 'project', 'getMany', node);
   const needle = filter?.trim().toLowerCase();
   return rows
     .filter((row) => typeof row.id === 'string' && typeof row.name === 'string')

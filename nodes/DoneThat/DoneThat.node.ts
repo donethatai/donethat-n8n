@@ -2,12 +2,14 @@ import type {
   IDataObject,
   IExecuteFunctions,
   ILoadOptionsFunctions,
+  INode,
   INodeExecutionData,
   INodeListSearchResult,
   INodeType,
   INodeTypeDescription,
+  JsonObject,
 } from 'n8n-workflow';
-import {NodeConnectionTypes, NodeOperationError} from 'n8n-workflow';
+import {NodeApiError, NodeConnectionTypes, NodeOperationError} from 'n8n-workflow';
 
 import {PROJECT_COLOR_HELP, PROJECT_COLORS} from './constants';
 import {projectListHttpOptions, searchProjectsFromResponse} from './projects';
@@ -22,6 +24,45 @@ const PROJECT_COLOR_OPTIONS = PROJECT_COLORS.map((value) => ({name: value, value
 
 interface DoneThatCredentials {
   baseUrl: string;
+}
+
+function isJsonObject(value: unknown): value is JsonObject {
+  return Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+}
+
+function isApiRequestError(error: unknown): error is JsonObject {
+  if (!isJsonObject(error)) return false;
+
+  return [
+    'httpCode',
+    'statusCode',
+    'status',
+    'response',
+    'body',
+    'data',
+    'error',
+    'code',
+  ].some((key) => key in error);
+}
+
+function wrapDoneThatError(
+  node: INode,
+  error: unknown,
+  itemIndex?: number,
+): NodeApiError | NodeOperationError {
+  if (error instanceof NodeApiError || error instanceof NodeOperationError) {
+    return error;
+  }
+
+  if (isApiRequestError(error)) {
+    return new NodeApiError(node, error, {itemIndex});
+  }
+
+  return new NodeOperationError(
+    node,
+    error instanceof Error ? error : String(error),
+    {itemIndex},
+  );
 }
 
 export class DoneThat implements INodeType {
@@ -447,14 +488,18 @@ export class DoneThat implements INodeType {
         this: ILoadOptionsFunctions,
         filter?: string,
       ): Promise<INodeListSearchResult> {
-        const credentials = await this.getCredentials('doneThatApi');
-        const baseUrl = trimBaseUrl(credentials.baseUrl as string);
-        const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
-          this,
-          'doneThatApi',
-          projectListHttpOptions(baseUrl),
-        );
-        return {results: searchProjectsFromResponse(response, filter)};
+        try {
+          const credentials = await this.getCredentials('doneThatApi');
+          const baseUrl = trimBaseUrl(credentials.baseUrl as string);
+          const response: unknown = await this.helpers.httpRequestWithAuthentication.call(
+            this,
+            'doneThatApi',
+            projectListHttpOptions(baseUrl),
+          );
+          return {results: searchProjectsFromResponse(response, this.getNode(), filter)};
+        } catch (error) {
+          throw wrapDoneThatError(this.getNode(), error);
+        }
       },
     },
   };
@@ -498,7 +543,13 @@ export class DoneThat implements INodeType {
             'doneThatApi',
             projectListHttpOptions(baseUrl),
           );
-          const projects = ((lookup as IDataObject).projects ?? []) as IDataObject[];
+          const projects = normalizeDoneThatResponse(
+            lookup,
+            'project',
+            'getMany',
+            this.getNode(),
+            itemIndex,
+          );
           const existing = projects.find((p) => p.name === projectName);
           const existingId = existing && typeof existing.id === 'string' ? existing.id : undefined;
           let mutation;
@@ -547,7 +598,13 @@ export class DoneThat implements INodeType {
           );
         }
 
-        let itemsOut = normalizeDoneThatResponse(response, resource, operation);
+        let itemsOut = normalizeDoneThatResponse(
+          response,
+          resource,
+          operation,
+          this.getNode(),
+          itemIndex,
+        );
 
         const simplifyApplies =
           (resource === 'report' && operation === 'generate') ||
@@ -575,7 +632,7 @@ export class DoneThat implements INodeType {
           });
           continue;
         }
-        throw new NodeOperationError(this.getNode(), error as Error, { itemIndex });
+        throw wrapDoneThatError(this.getNode(), error, itemIndex);
       }
     }
 

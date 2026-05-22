@@ -1,4 +1,5 @@
-import type {IDataObject} from 'n8n-workflow';
+import type {IDataObject, INode, JsonObject} from 'n8n-workflow';
+import {NodeApiError} from 'n8n-workflow';
 
 /** DoneThat node resource keys. */
 export type DoneThatResource = 'report' | 'message' | 'project' | 'search';
@@ -15,6 +16,8 @@ export function normalizeDoneThatResponse(
   response: unknown,
   resource: DoneThatResource,
   operation: string,
+  node: INode,
+  itemIndex?: number,
 ): IDataObject[] {
   if (Array.isArray(response)) {
     return response.map((entry) => entry as IDataObject);
@@ -28,7 +31,17 @@ export function normalizeDoneThatResponse(
   if (body.success === false) {
     const message =
       typeof body.error === 'string' ? body.error : 'DoneThat API request failed';
-    throw new Error(message);
+    const status = getHttpStatus(body);
+    const apiError = new NodeApiError(
+      node,
+      {message} as JsonObject,
+      {
+        itemIndex,
+        ...(status ? {httpCode: status} : {}),
+      },
+    );
+    apiError.context.doneThatResponse = body;
+    throw apiError;
   }
 
   if (resource === 'report' && Array.isArray(body.rows)) {
@@ -59,6 +72,20 @@ export function normalizeDoneThatResponse(
   }
 
   return [body];
+}
+
+function getHttpStatus(body: IDataObject): string | undefined {
+  for (const key of ['httpCode', 'statusCode', 'status', 'status_code']) {
+    const status = body[key];
+    if (
+      (typeof status === 'number' || typeof status === 'string') &&
+      /^[1-5][0-9][0-9]$/.test(String(status))
+    ) {
+      return String(status);
+    }
+  }
+
+  return undefined;
 }
 
 /**
