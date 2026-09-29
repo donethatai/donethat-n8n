@@ -50,7 +50,7 @@ The post-build verifier fails the build if any of these drift. Rename anything, 
 
 ## Publishing
 
-Publishes only via `.github/workflows/publish.yml` on tag pushes matching `*.*.*`. Requires npm Trusted Publisher configured on npmjs.com (owner/repo/workflow filename must match). Local `npm publish` is blocked by `prepublishOnly: n8n-node prerelease`, which only lets through `npm publish` when `RELEASE_MODE=true` (set by `n8n-node release`).
+Publishes only via `.github/workflows/publish.yml` on tag pushes matching `*.*.*`. The workflow fails unless the tagged commit is on `main`. Requires npm Trusted Publisher configured on npmjs.com (owner/repo/workflow filename must match). Local `npm publish` is blocked by `prepublishOnly: n8n-node prerelease`, which only lets through `npm publish` when `RELEASE_MODE=true` (set by `n8n-node release`).
 
 After the publish step, the workflow runs `@n8n/scan-community-package` against the new version. This is the same check the Creator Portal runs at submission time, so a green workflow means submission won't fail on lint or provenance. If it fails post-publish, fix and ship a patch.
 
@@ -59,6 +59,17 @@ Manually:
 ```
 npx @n8n/scan-community-package n8n-nodes-donethat
 ```
+
+## Code Review Rules
+
+Codex reviews every pull request. This package runs inside customers' n8n with their DoneThat API key, so treat these as P1 or higher:
+
+- A secret, API key, token or password in the diff, a test fixture, a log line or command output.
+- A new dependency or an unpinned version: anything in `dependencies` (must stay empty), a new dev dependency without a reason, a `package-lock.json` change that `package.json` doesn't explain, `@latest` in a new command, or a new third-party GitHub Action not pinned to a full commit SHA.
+- The API key, request headers or customer data (reports, messages, projects, search results) logged, put in error messages, or sent anywhere but the configured DoneThat base URL.
+- Broader API access: new endpoints or write/delete operations without a reason, HTTP outside `httpRequestWithAuthentication`, or `fetch`, `axios`, env vars or `fs`.
+- Changes to `.github/workflows/publish.yml`, the main-branch check in it, workflow `permissions`, `pull_request_target`, or what gets published (`files`, `main`, `n8n`, `prepack`, `prepublishOnly`, `release` in `package.json`).
+- The pull request description leaves out what changed, how it was tested, or the risk.
 
 ## Style
 
