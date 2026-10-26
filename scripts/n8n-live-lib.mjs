@@ -9,6 +9,16 @@ export const n8nVersion = process.env.N8N_LIVE_VERSION ?? '2.21.4';
 
 const MIN_NODE = [22, 16];
 
+// Joins segments onto baseDir and refuses any result that escapes it.
+export function pathInside(baseDir, ...segments) {
+  const base = path.resolve(baseDir);
+  const target = path.resolve(base, ...segments);
+  if (target !== base && !target.startsWith(base + path.sep)) {
+    throw new Error(`Path escapes ${base}: ${target}`);
+  }
+  return target;
+}
+
 export function ensureNode22() {
   if (process.env.N8N_LIVE_REEXEC === '1') return;
   if (process.env.N8N_LIVE_ALLOW_OLDER_NODE === 'true') return;
@@ -105,7 +115,7 @@ export async function ensureStack({ baseDir, port = '5678', encryptionKey }) {
   const customDir = path.join(baseDir, 'custom');
   const userFolder = path.join(baseDir, 'user');
   const packDir = path.join(baseDir, 'pack');
-  const versionMarker = path.join(baseDir, '.n8n-version');
+  const versionMarker = pathInside(baseDir, '.n8n-version');
   const envBase = npmEnv(baseDir);
 
   await mkdir(baseDir, { recursive: true });
@@ -188,9 +198,8 @@ export async function ensureStack({ baseDir, port = '5678', encryptionKey }) {
 }
 
 export function assertLoadedTypes(userFolder) {
-  const typesDir = path.join(userFolder, '.cache/n8n/public/types');
-  const nodesFile = path.join(typesDir, 'nodes.json');
-  const credentialsFile = path.join(typesDir, 'credentials.json');
+  const nodesFile = pathInside(userFolder, '.cache/n8n/public/types/nodes.json');
+  const credentialsFile = pathInside(userFolder, '.cache/n8n/public/types/credentials.json');
   if (!existsSync(nodesFile) || !existsSync(credentialsFile)) return false;
 
   const nodes = JSON.parse(readFileSync(nodesFile, 'utf8'));
