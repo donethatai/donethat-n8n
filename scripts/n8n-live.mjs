@@ -10,6 +10,7 @@ import {
   ensureNode22,
   ensureStack,
   n8nVersion,
+  pathInside,
   root,
   run,
 } from './n8n-live-lib.mjs';
@@ -25,7 +26,7 @@ const timeoutMs = Number(process.env.N8N_LIVE_TIMEOUT_MS ?? 180_000);
 async function writeSampleWorkflows(workflowsDir) {
   await mkdir(workflowsDir, { recursive: true });
   for (const { file, workflow } of sampleWorkflows) {
-    writeFileSync(path.join(workflowsDir, file), `${JSON.stringify(workflow, null, 2)}\n`);
+    writeFileSync(pathInside(workflowsDir, file), `${JSON.stringify(workflow, null, 2)}\n`);
   }
 }
 
@@ -39,7 +40,7 @@ function shouldImportSamples(workflowsDir, userFolder) {
   if (statSync(dbPath).mtimeMs > markerTime) return true;
 
   for (const { file } of sampleWorkflows) {
-    const workflowFile = path.join(workflowsDir, file);
+    const workflowFile = pathInside(workflowsDir, file);
     if (existsSync(workflowFile) && statSync(workflowFile).mtimeMs > markerTime) return true;
   }
 
