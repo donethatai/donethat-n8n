@@ -29,7 +29,7 @@ export class DoneThatApi implements ICredentialType {
       default: '',
       required: true,
       description:
-        'Create an API key at https://app.donethat.ai → Settings → API Access. ' +
+        'Create an API key at https://app.donethat.ai → Settings → Integrations → API access. ' +
         'Requires user:read for credential testing. Scopes and endpoints at https://donethat.ai/api-reference.',
     },
     {

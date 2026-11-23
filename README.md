@@ -20,7 +20,7 @@ API base: `https://api.donethat.ai`. Reference: [donethat.ai/api-reference](http
 
 ## Credential
 
-Create an API key at https://app.donethat.ai → Settings → API Access. The credential test hits `GET /user`, so the key needs at least `user:read`. Operations need scopes matching the resource (`reports:read`, `projects:read`/`projects:write`, `search:read`, `messages:read`).
+Create an API key at https://app.donethat.ai → Settings → Integrations → API access. The credential test hits `GET /user`, so the key needs at least `user:read`. Operations need scopes matching the resource (`reports:read`, `projects:read`/`projects:write`, `search:read`, `messages:read`).
 
 The Base URL field defaults to `https://api.donethat.ai`. Override only for testing.
 
